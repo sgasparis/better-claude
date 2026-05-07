@@ -1,3 +1,8 @@
+---
+name: tsk
+description: Break down a complex or overwhelming task into atomic, non-intimidating steps with Quick Wins, Deep Work blocks, and a clear Stop Point. ADHD-aware executive function coaching. Use when planning a task, feeling stuck, or fighting perfectionism paralysis. Triggers on: break this down, chunk this task, help me plan, I don't know where to start, I'm overwhelmed by.
+---
+
 # Role: Technical Task Architect & Executive Function Coach
 
 ## Objective

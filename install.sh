@@ -138,6 +138,75 @@ install_ralph() {
   fi
 }
 
+setup_obsidian() {
+  echo ""
+  echo "--- Obsidian Vault Setup ---"
+
+  # Check for CLI
+  if ! command -v obsidian &>/dev/null && [ ! -f ~/.local/bin/obsidian ]; then
+    echo "Skipped: obsidian CLI not found. Install it first, then re-run."
+    return
+  fi
+
+  local obs_cmd
+  obs_cmd=$(command -v obsidian 2>/dev/null || echo ~/.local/bin/obsidian)
+
+  # Check if already configured
+  if [ -n "$OBSIDIAN_VAULT" ]; then
+    echo "OBSIDIAN_VAULT is already set to: $OBSIDIAN_VAULT"
+    read -rp "Reconfigure? [y/N]: " reconf
+    [[ ! "$reconf" =~ ^[Yy]$ ]] && return
+  fi
+
+  # List available vaults
+  echo ""
+  echo "Available vaults:"
+  "$obs_cmd" vaults verbose 2>/dev/null || echo "(Could not list vaults — is Obsidian running?)"
+  echo ""
+  read -rp "Vault name to use [exact name from above]: " vault_name
+  if [ -z "$vault_name" ]; then
+    echo "Skipped: no vault name entered."
+    return
+  fi
+
+  read -rp "Inbox note name [default: Inbox]: " inbox_name
+  inbox_name="${inbox_name:-Inbox}"
+
+  # Detect shell profile
+  local shell_profile=""
+  if [ -f "$HOME/.zshrc" ]; then
+    shell_profile="$HOME/.zshrc"
+  elif [ -f "$HOME/.bashrc" ]; then
+    shell_profile="$HOME/.bashrc"
+  elif [ -f "$HOME/.bash_profile" ]; then
+    shell_profile="$HOME/.bash_profile"
+  fi
+
+  echo ""
+  echo "Add these to your shell profile:"
+  echo "  export OBSIDIAN_VAULT=\"$vault_name\""
+  if [ "$inbox_name" != "Inbox" ]; then
+    echo "  export OBSIDIAN_INBOX=\"$inbox_name\""
+  fi
+
+  if [ -n "$shell_profile" ]; then
+    echo ""
+    read -rp "Append to $shell_profile automatically? [y/N]: " do_append
+    if [[ "$do_append" =~ ^[Yy]$ ]]; then
+      {
+        echo ""
+        echo "# Obsidian vault (added by better-claude)"
+        echo "export OBSIDIAN_VAULT=\"$vault_name\""
+        [ "$inbox_name" != "Inbox" ] && echo "export OBSIDIAN_INBOX=\"$inbox_name\""
+      } >> "$shell_profile"
+      echo "[OK] Written to $shell_profile"
+      echo "     Run: source $shell_profile"
+    fi
+  fi
+
+  echo "[OK] Obsidian vault configured: $vault_name"
+}
+
 echo "Installing better-claude..."
 echo ""
 
@@ -146,6 +215,7 @@ if [ "$MODE" = "--global" ]; then
   install_skills global
   install_claude_md global
   install_ralph
+  setup_obsidian
 elif [ "$MODE" = "--project" ]; then
   echo "Target: $PROJECT_DIR"
   echo ""
