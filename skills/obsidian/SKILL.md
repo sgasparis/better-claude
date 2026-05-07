@@ -7,46 +7,78 @@ description: Interact with the user's Obsidian vault — read notes, capture and
 
 ## Setup
 
-The CLI binary is at `~/.local/bin/obsidian`.
+Two environment variables control vault access. Check which are set before running any command:
 
-Always target the vault using the `OBSIDIAN_VAULT` environment variable:
+| Variable | Required | Purpose |
+|---|---|---|
+| `OBSIDIAN_VAULT` | For CLI mode | Vault name passed to the obsidian CLI |
+| `OBSIDIAN_VAULT_PATH` | For file mode | Absolute filesystem path to the vault root |
+| `OBSIDIAN_INBOX` | No (default: `Inbox`) | Inbox note name |
 
+**Mode selection — run this check first:**
 ```bash
-obsidian vault="$OBSIDIAN_VAULT" <command>
+if command -v obsidian &>/dev/null || [ -f ~/.local/bin/obsidian ]; then
+  echo "CLI mode available"
+else
+  echo "File mode only — use OBSIDIAN_VAULT_PATH"
+fi
 ```
 
-If `OBSIDIAN_VAULT` is not set, run `obsidian vaults verbose` and ask the user to choose. Never assume the active vault.
-
-The inbox note name comes from `OBSIDIAN_INBOX` (default: `Inbox`).
+If neither `OBSIDIAN_VAULT` nor `OBSIDIAN_VAULT_PATH` is set, stop and ask the user to run `install.sh --global` first.
 
 ## Core Commands
 
+### CLI Mode (Linux/macOS — obsidian CLI connected to running Obsidian app)
+
 ```bash
+OBS=$(command -v obsidian 2>/dev/null || echo ~/.local/bin/obsidian)
+
 # Read today's daily note
-obsidian vault="$OBSIDIAN_VAULT" daily:read
+"$OBS" vault="$OBSIDIAN_VAULT" daily:read
 
 # Append to today's daily note
-obsidian vault="$OBSIDIAN_VAULT" daily:append content="..."
+"$OBS" vault="$OBSIDIAN_VAULT" daily:append content="..."
 
-# Read the inbox (vault path + filesystem)
-VAULT_PATH=$(obsidian vault="$OBSIDIAN_VAULT" vault info=path)
-cat "$VAULT_PATH/${OBSIDIAN_INBOX:-Inbox}.md"
+# Read the inbox
+"$OBS" vault="$OBSIDIAN_VAULT" read file="${OBSIDIAN_INBOX:-Inbox}"
 
 # Append to inbox
-obsidian vault="$OBSIDIAN_VAULT" append file="${OBSIDIAN_INBOX:-Inbox}" content="..."
+"$OBS" vault="$OBSIDIAN_VAULT" append file="${OBSIDIAN_INBOX:-Inbox}" content="..."
 
 # Create a new note
-obsidian vault="$OBSIDIAN_VAULT" create path="<folder>/<name>.md" content="..."
+"$OBS" vault="$OBSIDIAN_VAULT" create path="<folder>/<name>.md" content="..."
 
 # Search vault
-obsidian vault="$OBSIDIAN_VAULT" search query="..."
-
-# List files
-obsidian vault="$OBSIDIAN_VAULT" files
-
-# Get vault path (useful for reading arbitrary files)
-obsidian vault="$OBSIDIAN_VAULT" vault info=path
+"$OBS" vault="$OBSIDIAN_VAULT" search query="..."
 ```
+
+### File Mode (WSL / no CLI — direct filesystem access via OBSIDIAN_VAULT_PATH)
+
+```bash
+VAULT="${OBSIDIAN_VAULT_PATH}"
+INBOX="$VAULT/${OBSIDIAN_INBOX:-Inbox}.md"
+TODAY="$VAULT/$(date +%Y-%m-%d).md"  # adjust path if daily notes are in a subfolder
+
+# Read inbox
+cat "$INBOX"
+
+# Append to inbox
+printf "\n%s" "..." >> "$INBOX"
+
+# Read today's daily note
+cat "$TODAY"
+
+# Append to today's daily note
+printf "\n%s" "..." >> "$TODAY"
+
+# Create a new note
+printf "%s" "..." > "$VAULT/<folder>/<name>.md"
+
+# Search vault
+grep -rl "query" "$VAULT" --include="*.md"
+```
+
+**Daily note path:** If the user has daily notes in a subfolder (e.g., `Journal/`), use `$VAULT/Journal/$(date +%Y-%m-%d).md`. Ask the user if unsure.
 
 ## Task Capture Workflow
 
@@ -132,5 +164,6 @@ If the user pushes back on the Stop Point:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `OBSIDIAN_VAULT` | *(required)* | Vault name passed to every CLI command |
+| `OBSIDIAN_VAULT` | *(required for CLI mode)* | Vault name passed to obsidian CLI commands |
+| `OBSIDIAN_VAULT_PATH` | *(required for file mode)* | Absolute filesystem path to vault root |
 | `OBSIDIAN_INBOX` | `Inbox` | Note name used as the inbox |
