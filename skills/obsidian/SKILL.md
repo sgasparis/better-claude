@@ -1,6 +1,6 @@
 ---
 name: obsidian
-description: Interact with the user's Obsidian vault — read notes, capture and chunk tasks to inbox or daily note, search content. Use when the user wants to save something to Obsidian, plan a task, or run the task capture workflow. Triggers on: add this to obsidian, capture this task, add to inbox, put this in my vault, plan this in obsidian.
+description: Interact with the user's Obsidian vault — read notes, capture and chunk tasks to inbox or daily note using Obsidian Tasks plugin syntax (priorities, dependencies, tags). Use when the user wants to save something to Obsidian, plan a task, or run the task capture workflow. Triggers on: add this to obsidian, capture this task, add to inbox, put this in my vault, plan this in obsidian, add dependencies, tag this task.
 ---
 
 # Obsidian Vault Integration
@@ -80,6 +80,54 @@ grep -rl "query" "$VAULT" --include="*.md"
 
 **Daily note path:** If the user has daily notes in a subfolder (e.g., `Journal/`), use `$VAULT/Journal/$(date +%Y-%m-%d).md`. Ask the user if unsure.
 
+## Tasks Plugin Syntax
+
+The Obsidian Tasks community plugin extends `- [ ]` checkboxes with structured metadata on the same line.
+
+### Priority
+
+| Emoji | Level |
+|---|---|
+| `⏫` | Highest |
+| `🔼` | High |
+| *(none)* | Normal |
+| `🔽` | Low |
+| `⏬` | Lowest |
+
+### Dates
+
+```
+📅 YYYY-MM-DD   due date
+⏳ YYYY-MM-DD   scheduled (earliest to work on)
+🛫 YYYY-MM-DD   start date
+🔁 every week   recurrence
+```
+
+### Dependencies
+
+Each task can carry a unique ID. Other tasks declare they are blocked by it:
+
+```
+🆔 <id>         assigns this task an ID (must be unique across the vault)
+⛔ <id>         this task is blocked until the task with that ID is complete
+```
+
+IDs can be short slugs (`setup-db`, `api-impl`) or random 6-char strings. Make them human-readable when tasks are in the same group so the relationship is obvious.
+
+Multiple blockers: `⛔ id1,id2`
+
+### Tags
+
+Standard Obsidian tags anywhere in the line: `#project #context`
+
+### Full example line
+
+```markdown
+- [ ] Build the API endpoint ⛔ setup-db 🆔 api-impl 🔼 📅 2026-05-10 #backend #workflow
+```
+
+---
+
 ## Task Capture Workflow
 
 This is the primary workflow — use it when the user wants to add, plan, or think through a task.
@@ -90,7 +138,8 @@ Ask only what you need. Keep it natural, not an interrogation:
 
 - **What is it?** One sentence description of the task.
 - **What does done look like?** The concrete outcome — not perfect, just shipped.
-- **Any blockers or context?** Dependencies, unknowns, constraints.
+- **Tags?** What project or context label should these tasks carry? (e.g. `#work`, `#infra`, `#personal`)
+- **Any blockers or context?** External dependencies, unknowns, constraints.
 
 If the task is clearly scoped from context, skip questions and go straight to chunking.
 
@@ -98,9 +147,9 @@ If the task is clearly scoped from context, skip questions and go straight to ch
 
 Break the task into three layers:
 
-**Quick Wins** — under 10 minutes each, zero friction. The goal is to start moving, not to accomplish everything.
+**Quick Wins** — under 10 minutes each, zero friction. Priority: `🔽` Low. No dependencies, no IDs needed unless a Deep Work step depends on one.
 
-**Deep Work** — 30–60 minute focused blocks. Each must have a specific Definition of Done (DoD) so the user knows exactly when to stop.
+**Deep Work** — 30–60 minute focused blocks. Priority: Normal or `🔼` High. Assign a `🆔 <slug-id>` to any step that a later step depends on. Chain them with `⛔`.
 
 **Stop Point (v1.0)** — a clear "good enough" line. State it explicitly. The user has permission to stop here. Do not add polish items beyond this line.
 
@@ -108,6 +157,7 @@ Rules:
 - If a task exceeds 60 minutes, split it
 - Every Deep Work item needs a DoD — no vague outcomes
 - The Stop Point is non-negotiable. Name it. Protect it.
+- IDs must be unique across the vault — use descriptive slugs tied to the task name
 
 ### Step 3: Choose Destination
 
@@ -118,7 +168,7 @@ Ask: **"Inbox or today's daily note?"**
 
 ### Step 4: Write to Vault
 
-Format the output as a section in the note:
+Format the output using Tasks plugin syntax. Every task line gets: priority + IDs/blockers (if any) + tags.
 
 ```markdown
 
@@ -126,16 +176,22 @@ Format the output as a section in the note:
 > Added: {{YYYY-MM-DD}}
 
 ### Quick Wins
-- [ ] ...
-- [ ] ...
+- [ ] [action] 🔽 #tag
+- [ ] [action] 🔽 #tag
 
 ### Deep Work
-- [ ] [Step] (DoD: [specific outcome])
-- [ ] [Step] (DoD: [specific outcome])
+- [ ] [Step 1 — no dependency] 🆔 task-step1 #tag
+  > DoD: [specific, verifiable outcome]
+- [ ] [Step 2 — depends on step 1] ⛔ task-step1 🆔 task-step2 🔼 #tag
+  > DoD: [specific, verifiable outcome]
+- [ ] [Step 3 — depends on step 2] ⛔ task-step2 #tag
+  > DoD: [specific, verifiable outcome]
 
 ### Stop Point (v1.0)
-[One sentence describing "good enough". Remind the user they have permission to stop here.]
+> [One sentence: what "good enough" looks like. Remind the user they have permission to stop here.]
 ```
+
+**Only add dates if the user mentioned a deadline or target.** Don't invent due dates.
 
 Use `\n` for line breaks in CLI content arguments.
 
